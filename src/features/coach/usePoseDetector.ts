@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Asset } from 'expo-asset';
 import { Platform } from 'react-native';
 import { loadTensorflowModel, type TensorflowModelDelegate, type TfliteModel } from 'react-native-fast-tflite';
 import { CommonResolutions, useFrameOutput, type CameraFrameOutput, type Frame } from 'react-native-vision-camera';
@@ -24,13 +25,24 @@ function useMoveNet(): ModelState {
     let cancelled = false;
     (async () => {
       let lastError: Error = new Error('No delegate worked');
+      // In release builds the model is an Android resource ("assets_models_…"), which
+      // fast-tflite's URL-based loader cannot open; copy it to a real file first.
+      let url: string;
+      try {
+        const asset = await Asset.fromModule(MODEL).downloadAsync();
+        url = asset.localUri ?? asset.uri;
+      } catch (e) {
+        if (!cancelled) setState({ status: 'error', error: e as Error });
+        return;
+      }
       for (const delegates of DELEGATE_ORDER) {
         try {
-          const model = await loadTensorflowModel(MODEL, delegates);
+          const model = await loadTensorflowModel({ url }, delegates);
           if (!cancelled) setState({ status: 'ready', model });
           return;
         } catch (e) {
           lastError = e as Error;
+          console.warn(`MoveNet failed with delegates [${delegates.join(',')}]: ${lastError.message}`);
         }
       }
       if (!cancelled) setState({ status: 'error', error: lastError });

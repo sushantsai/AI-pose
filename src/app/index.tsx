@@ -347,7 +347,9 @@ export default function CameraHome() {
             {pose ? <Text style={styles.info}>ⓘ</Text> : null}
           </Pressable>
           {!detector.ready && pose ? (
-            <Text style={styles.subtle}>{detector.error ? 'Pose tracking unavailable on this phone' : 'Starting pose tracking…'}</Text>
+            <Text style={styles.subtle} numberOfLines={3}>
+              {detector.error ? `Pose tracking unavailable on this phone\n${detector.error.message}` : 'Starting pose tracking…'}
+            </Text>
           ) : null}
         </View>
 
