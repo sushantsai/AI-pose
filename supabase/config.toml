@@ -1,0 +1,11 @@
+# Minimal Supabase project config for the AI coach.
+# Run `supabase init` to generate the full default file if you use the local stack.
+project_id = "ai-pose"
+
+[auth]
+enabled = true
+# The app signs users in anonymously so AI quotas are per device without a sign-up form.
+enable_anonymous_sign_ins = true
+
+[functions.coach]
+verify_jwt = true
