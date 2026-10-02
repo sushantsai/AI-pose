@@ -26,8 +26,10 @@ let anthropic: Anthropic | null = null;
 /** Created lazily so a missing key returns a clear error instead of crashing the function on boot. */
 function getAnthropic(): Anthropic {
   if (anthropic) return anthropic;
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  // Pasted secrets often carry stray whitespace or quotes; strip them.
+  const apiKey = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim().replace(/^["']|["']$/g, '').trim();
   if (!apiKey) throw new CoachError(503, 'not_configured', 'The AI coach is not configured yet.');
+  if (!apiKey.startsWith('sk-ant-')) console.error(`ANTHROPIC_API_KEY looks wrong: length ${apiKey.length}, does not start with sk-ant-`);
   anthropic = new Anthropic({ apiKey });
   return anthropic;
 }
