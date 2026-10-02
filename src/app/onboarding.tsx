@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Linking, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useCameraPermission } from 'react-native-vision-camera';
-import { PoseSketch } from '@/components/PoseSketch';
+import { PoseOutline } from '@/components/PoseOutline';
 import { Button, Screen } from '@/components/ui';
 import { buildFigure } from '@/core/poseDsl';
 import { getPose } from '@/core/poses';
@@ -11,20 +11,20 @@ import { colors, radius, space, type } from '@/lib/theme';
 const STEPS = [
   {
     emoji: '🏞️',
-    title: 'Point at the place',
-    body: 'Scan the background before you pose. The AI reads the light, the space and what is around you.',
+    title: 'Open the camera',
+    body: 'Point it at the place. The AI reads the scene and suggests poses that suit it, right in the camera.',
     pose: 'solo-arms-wide',
   },
   {
     emoji: '✨',
-    title: 'Follow the live sketch',
-    body: 'A ghost outline shows the pose on your camera. Match it — the coach tells you what to adjust, out loud.',
+    title: 'Step into the outline',
+    body: 'Match the outline on screen. Notes on your arms and legs show what to move, and the coach says it out loud.',
     pose: 'solo-classic-hip',
   },
   {
     emoji: '📲',
-    title: 'Post-ready in seconds',
-    body: 'It snaps when you nail it, crops for Instagram or Facebook, and writes the caption and hashtags.',
+    title: 'It snaps when you nail it',
+    body: 'Then crops for Instagram or Facebook and writes the caption and hashtags.',
     pose: 'duo-heart-hands',
   },
 ];
@@ -61,7 +61,7 @@ export default function Onboarding() {
   return (
     <Screen style={styles.screen}>
       <View style={[styles.art, { height: sketchH }]}>
-        <PoseSketch figures={figures} width={sketchW} height={sketchH} color={colors.text} stroke={0.022} />
+        <PoseOutline figures={figures} width={sketchW} height={sketchH} halo={false} thickness={2.5} />
       </View>
       <Text style={styles.emoji}>{current.emoji}</Text>
       <Text style={[type.hero, { textAlign: 'center' }]}>{current.title}</Text>

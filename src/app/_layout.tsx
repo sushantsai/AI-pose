@@ -1,5 +1,6 @@
 import { DarkTheme, SplashScreen, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Caveat_700Bold, useFonts } from '@expo-google-fonts/caveat';
 import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useHistory, useSettings } from '@/lib/store';
@@ -26,13 +27,16 @@ function useHydrated() {
 
 export default function RootLayout() {
   const hydrated = useHydrated();
+  const [fontsLoaded, fontError] = useFonts({ Caveat_700Bold });
   const onboarded = useSettings((s) => s.onboarded);
+  // A missing font only changes how notes look; never block the app on it.
+  const ready = hydrated && (fontsLoaded || fontError != null);
 
   useEffect(() => {
-    if (hydrated) SplashScreen.hideAsync().catch(() => {});
-  }, [hydrated]);
+    if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
 
-  if (!hydrated) return null;
+  if (!ready) return null;
 
   return (
     <SafeAreaProvider>
@@ -43,12 +47,8 @@ export default function RootLayout() {
             <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
           </Stack.Protected>
           <Stack.Protected guard={onboarded}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="scan" options={{ animation: 'fade' }} />
-            <Stack.Screen name="suggestions" />
-            <Stack.Screen name="library" />
+            <Stack.Screen name="index" options={{ animation: 'fade' }} />
             <Stack.Screen name="pose/[id]" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="coach" options={{ animation: 'fade', gestureEnabled: false }} />
             <Stack.Screen name="review" />
             <Stack.Screen name="history" />
             <Stack.Screen name="settings" options={{ presentation: 'modal' }} />

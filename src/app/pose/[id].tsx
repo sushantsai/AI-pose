@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { PoseSketch } from '@/components/PoseSketch';
+import { PoseOutline } from '@/components/PoseOutline';
 import { Button, Card, Screen } from '@/components/ui';
 import { buildFigure } from '@/core/poseDsl';
 import { getPose } from '@/core/poses';
@@ -31,8 +31,8 @@ export default function PoseDetail() {
   }
 
   const start = () => {
-    setSession({ poseId: pose.id, people: pose.people, captures: [] });
-    router.replace('/coach');
+    setSession({ poseId: pose.id });
+    router.back();
   };
 
   return (
@@ -47,7 +47,7 @@ export default function PoseDetail() {
         <Text style={type.hero}>{pose.name}</Text>
 
         <View style={[styles.art, { height: artH }]}>
-          <PoseSketch figures={figures} width={artW} height={artH} color={colors.text} stroke={0.018} hideLegs={pose.framing === 'half'} />
+          <PoseOutline figures={figures} width={artW} height={artH} halo={false} thickness={3} hideLegs={pose.framing === 'half'} />
         </View>
 
         {recommendation ? (
@@ -75,7 +75,7 @@ export default function PoseDetail() {
         </Card>
       </ScrollView>
       <View style={styles.footer}>
-        <Button title="Start live coach" icon="✨" onPress={start} />
+        <Button title="Use this pose" icon="✨" onPress={start} />
       </View>
     </Screen>
   );

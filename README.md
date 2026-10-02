@@ -4,17 +4,25 @@ Point your phone at a location, get poses that suit it, follow a live sketch ove
 
 ## How it works
 
+The app opens straight into the camera (camera-first, like a native camera's pose mode):
+
 ```
-Scan background ──► AI scene read (Claude Haiku 4.5, 1 call) ──► 4 recommended poses
-                                                                     │
-Live camera ◄── ghost sketch overlay ◄── pose library (49 poses) ◄──┘
+Camera opens ──► AI reads the scene in the background (Claude Haiku 4.5, 1 call)
+                    │
+                    ▼
+Bottom tray: For you · Solo · Couple  — pose thumbnails, "None", ↻ New picks
+                    │  tap a pose
+                    ▼
+Live view: white body-outline of the pose + one instruction line at the top
+           + hand-written notes on the limbs that need to move ("raise arm ↑")
    │  on-device MoveNet MultiPose (free, ~15 fps, up to 6 people)
    ▼
-Match score + spoken hints ("Raise your left arm", "Move closer together")
-   │  auto-capture when the pose is held
+Outline turns green when matched → auto-capture (optional timer, voice coaching)
    ▼
-Smart crop (IG 4:5 / Story 9:16 / FB 1:1) + AI captions & hashtags (1 call) ──► Save / Share
+Gallery → smart crop (IG 4:5 / Story 9:16 / FB 1:1) + AI captions & hashtags → Save / Share
 ```
+
+"For you" switches between solo and couple picks automatically when two people are in frame.
 
 | Part | What runs where | Cost |
 |---|---|---|
@@ -29,17 +37,16 @@ A full session (1 scan + 1 caption set) costs about **$0.006 in AI**. Each user 
 
 ```
 src/app/                 Screens (Expo Router)
-  index.tsx              Home: solo/couple, vibe, start
-  scan.tsx               Scan the location (or pick it manually)
-  suggestions.tsx        AI scene read + recommended poses
-  library.tsx            All poses, filterable
-  pose/[id].tsx          Pose detail and cues
-  coach.tsx              Live camera, sketch overlay, scoring, voice, auto-capture
+  index.tsx              Camera home: scene read, pose tray, outline, notes, scoring, capture
+  pose/[id].tsx          Pose cues sheet (from the ⓘ on the instruction line)
   review.tsx             Best shot, platform crop, captions, save/share
-  history.tsx, settings.tsx
+  onboarding.tsx, history.tsx, settings.tsx
+src/components/          PoseOutline (body contour + limb notes), PoseTray, ui
 src/core/                Pure TypeScript, fully unit-tested
   poseDsl.ts             Poses authored as joint angles → keypoints
   poses/                 The pose library (solo.ts, couple.ts)
+  outline.ts             Body-contour geometry for the pose outline
+  annotations.ts         Limb notes ("raise arm ↑") and the instruction line
   movenet.ts             Model output decoding + frame→screen mapping
   matching.ts            Mirror-tolerant pose scoring, hints, framing, couples
   capture.ts             Auto-capture state machine
@@ -91,6 +98,7 @@ npm run lint
 npm run check:functions  # Deno type-check of the edge function
 npm run gen:catalog      # after editing poses: refresh the catalog the AI chooses from
 npm run render:poses     # contact sheet of every pose sketch → poses.svg
+npx tsx scripts/render-outlines.ts > outlines.svg   # the outlines as drawn on camera
 ```
 
 ### Adding a pose

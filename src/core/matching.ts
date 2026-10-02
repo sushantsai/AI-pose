@@ -287,6 +287,8 @@ export interface ShotEvaluation {
   hints: string[];
   /** Which variant of the sketch the people are closest to. */
   mirrored: boolean;
+  /** Framing problems only (distance, position, spacing), most important first. */
+  framingHints: string[];
   /** Per-target results, aligned with `targets`. */
   people: ({ pose: PoseScore; framingOk: boolean } | null)[];
   /** The sketch variant people were compared against (mirrored or not), sorted left to right. */
@@ -332,6 +334,7 @@ export function evaluateShot(targets: Figure[], detected: Person[], opts: Evalua
       status: 'no-person',
       score: 0,
       hints: [needed > 1 ? 'Both of you step into the frame' : 'Step into the frame'],
+      framingHints: [needed > 1 ? 'Both of you step into the frame' : 'Step into the frame'],
       mirrored: false,
       people: targets.map(() => null),
       targets,
@@ -342,6 +345,7 @@ export function evaluateShot(targets: Figure[], detected: Person[], opts: Evalua
       status: 'missing-person',
       score: 0,
       hints: ['I can only see one of you — both step into the frame'],
+      framingHints: ['I can only see one of you — both step into the frame'],
       mirrored: false,
       people: targets.map(() => null),
       targets,
@@ -366,6 +370,7 @@ export function evaluateShot(targets: Figure[], detected: Person[], opts: Evalua
   if (opts.framing === 'full' && best.results.some((r) => r.pose.legsHidden)) {
     hints.push(opts.camera === 'front' ? 'Move the phone back so your feet are in the shot' : 'Step back so your feet are in the shot');
   }
+  const framingHints = [...hints];
   best.results.forEach((r, i) => poseHints(r.pose, opts.camera, multi ? 1 : 2).forEach((h) => hints.push(label(i) + h)));
 
   const framingOk = best.results.every((r) => r.framing.ok);
@@ -377,6 +382,7 @@ export function evaluateShot(targets: Figure[], detected: Person[], opts: Evalua
     status: ready ? 'ready' : 'adjusting',
     score,
     hints: ready ? hints.slice(0, 1) : hints,
+    framingHints,
     mirrored: isMirrored,
     people: best.results.map((r) => ({ pose: r.pose, framingOk: r.framing.ok })),
     targets: best.sortedTargets,

@@ -36,30 +36,29 @@ function noticeFor(err: unknown): string {
 }
 
 /**
- * Ask the AI which poses suit this location. Never throws: falls back to the
- * on-device recommender using `fallbackScene` so the flow always continues.
+ * Ask the AI which poses suit this location. Never throws: on any failure it
+ * returns `data: null` with a notice, and the camera falls back to built-in picks.
  */
 export async function analyzeScene(opts: {
   imageBase64: string;
   people: 1 | 2;
-  vibe: Vibe | null;
-  fallbackScene: Scene;
-}): Promise<Sourced<SceneAnalysis>> {
+  vibe?: Vibe | null;
+}): Promise<Sourced<SceneAnalysis | null>> {
   try {
     const res = await invoke<SceneAnalysis>({
       action: 'scene',
       image: opts.imageBase64,
       people: opts.people,
-      vibe: opts.vibe,
+      vibe: opts.vibe ?? null,
     });
     if (res.data.recommendations.length === 0) {
-      // The AI saw the scene but picked nothing usable: keep its scene read, use local poses.
+      // The AI read the scene but picked nothing usable: keep its read, use local poses.
       const local = localSceneAnalysis(res.data.scene.type, opts.people, opts.vibe);
       return { data: { ...res.data, recommendations: local.recommendations }, source: 'ai', remaining: res.remaining };
     }
     return { data: res.data, source: 'ai', remaining: res.remaining };
   } catch (err) {
-    return { data: localSceneAnalysis(opts.fallbackScene, opts.people, opts.vibe), source: 'offline', notice: noticeFor(err) };
+    return { data: null, source: 'offline', notice: noticeFor(err) };
   }
 }
 

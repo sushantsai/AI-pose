@@ -35,3 +35,8 @@ export function scoreColor(score: number): string {
   if (score >= 55) return colors.warning;
   return colors.accent;
 }
+
+/** Loaded in the root layout with expo-font. */
+export const fonts = {
+  hand: 'Caveat_700Bold',
+} as const;

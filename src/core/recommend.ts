@@ -75,3 +75,45 @@ export function localSceneAnalysis(scene: Scene, people: 1 | 2, vibe?: Vibe | nu
     framing: { orientation: 'portrait', cameraHeight: poses[0]?.camera ?? 'eye' },
   };
 }
+
+/** Versatile poses that work almost anywhere, used before (or without) an AI scene read. */
+const EVERYWHERE: Record<1 | 2, string[]> = {
+  1: [
+    'solo-classic-hip',
+    'solo-pockets',
+    'solo-walk-toward',
+    'solo-look-back',
+    'solo-head-tilt-smile',
+    'solo-cross-legs',
+    'solo-arms-wide',
+    'solo-wave',
+    'solo-portrait-straight',
+    'solo-point-view',
+    'solo-hair-touch',
+    'solo-jump',
+  ],
+  2: [
+    'duo-hold-hands',
+    'duo-side-hug',
+    'duo-laugh-candid',
+    'duo-walk-toward',
+    'duo-back-to-back',
+    'duo-twirl',
+    'duo-shoulder-lean',
+    'duo-heart-hands',
+    'duo-forehead-touch',
+    'duo-power',
+    'duo-walk-away',
+    'duo-jump',
+  ],
+};
+
+/**
+ * A page of general-purpose picks. `page` rotates through the list so
+ * "New picks" always shows something different.
+ */
+export function defaultPicks(people: 1 | 2, page = 0, count = 4): PoseDefinition[] {
+  const all = EVERYWHERE[people].map((id) => posesFor(people).find((p) => p.id === id)!).filter(Boolean);
+  const start = (page * count) % all.length;
+  return Array.from({ length: Math.min(count, all.length) }, (_, i) => all[(start + i) % all.length]);
+}

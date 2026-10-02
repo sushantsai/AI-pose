@@ -82,6 +82,7 @@ export default function Settings() {
           </Text>
         </Card>
 
+        <Button title={`My shoots (${count})`} variant="secondary" onPress={() => router.push('/history')} style={{ marginTop: space.lg }} />
         <Button
           title={`Clear saved shoots (${count})`}
           variant="secondary"
