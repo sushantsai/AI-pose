@@ -68,8 +68,10 @@ Without Supabase settings the app runs fully offline (manual location pick, buil
 
 ### Enable the AI coach (Supabase + Claude)
 
+The function authenticates the caller from their (anonymous) session, then spends the per-user daily quota with the service role; the quota function is not callable by users.
+
 1. Create a Supabase project and enable **Anonymous sign-ins** (Authentication → Sign In / Providers).
-2. Apply the migration and deploy the function:
+2. Apply the migrations and deploy the function:
    ```bash
    npx supabase link --project-ref <your-ref>
    npx supabase db push

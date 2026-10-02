@@ -21,7 +21,16 @@ const DAILY_LIMIT: Record<CoachRequest['action'], number> = {
   postkit: Number(Deno.env.get('DAILY_POSTKIT_LIMIT') ?? 40),
 };
 
-const anthropic = new Anthropic(); // reads ANTHROPIC_API_KEY
+let anthropic: Anthropic | null = null;
+
+/** Created lazily so a missing key returns a clear error instead of crashing the function on boot. */
+function getAnthropic(): Anthropic {
+  if (anthropic) return anthropic;
+  const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  if (!apiKey) throw new CoachError(503, 'not_configured', 'The AI coach is not configured yet.');
+  anthropic = new Anthropic({ apiKey });
+  return anthropic;
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -49,23 +58,24 @@ Deno.serve(async (req) => {
   if (!parsed.ok) return json(400, { ok: false, error: parsed.error });
   const request = parsed.request;
 
-  // Per-user daily quota. The function runs with the caller's JWT, so the
-  // database function can read auth.uid() and nobody can spend someone else's quota.
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!,
-    { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
-  );
-  const { data: remaining, error: quotaError } = await supabase.rpc('consume_coach_quota', {
+  // Per-user daily quota. Verify who is calling from their JWT, then spend
+  // quota with the service role; users cannot call the quota function themselves.
+  const url = Deno.env.get('SUPABASE_URL')!;
+  const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+  const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: auth, error: authError } = await admin.auth.getUser(jwt);
+  if (authError || !auth.user) return json(401, { ok: false, code: 'unauthorized', error: 'Sign in required' });
+
+  const { data: remaining, error: quotaError } = await admin.rpc('consume_coach_quota', {
+    p_user: auth.user.id,
     p_action: request.action,
     p_limit: DAILY_LIMIT[request.action],
   });
   if (quotaError) {
     if (quotaError.message.includes('quota_exceeded')) {
       return json(429, { ok: false, code: 'quota_exceeded', error: 'Daily AI limit reached. Offline suggestions still work.' });
-    }
-    if (quotaError.message.includes('not_authenticated')) {
-      return json(401, { ok: false, code: 'unauthorized', error: 'Sign in required' });
     }
     console.error('quota', quotaError);
     return json(500, { ok: false, error: 'Quota check failed' });
@@ -86,7 +96,7 @@ async function callClaude(
   schema: { [key: string]: unknown },
   maxTokens: number,
 ) {
-  const response = await anthropic.messages.create({
+  const response = await getAnthropic().messages.create({
     model: MODEL,
     max_tokens: maxTokens,
     system,
