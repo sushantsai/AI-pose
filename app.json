@@ -18,7 +18,9 @@
     },
     "android": {
       "package": "com.posecoach.app",
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#0B0B10",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -46,7 +48,9 @@
           "photosPermission": false,
           "savePhotosPermission": "PoseCoach saves your finished photos to your library.",
           "isAccessMediaLocationEnabled": false,
-          "granularPermissions": ["photo"]
+          "granularPermissions": [
+            "photo"
+          ]
         }
       ],
       [
@@ -59,7 +63,15 @@
       "expo-sharing",
       "expo-image",
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
