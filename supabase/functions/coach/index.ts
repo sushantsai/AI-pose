@@ -1,6 +1,7 @@
-// Supabase Edge Function: AI scene analysis and post captions via Claude Haiku 4.5.
+// Supabase Edge Function: AI scene analysis and post captions.
+// Default model: Claude Haiku 4.5. Any OpenAI-compatible provider (e.g. OpenRouter)
+// can be used instead by setting secrets; see _shared/llm.ts and the README.
 // Deploy: supabase functions deploy coach
-// Secrets: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 import Anthropic from 'npm:@anthropic-ai/sdk@0.131.0';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 import {
@@ -13,24 +14,24 @@ import {
   type SceneAnalysis,
 } from '../_shared/contract.ts';
 import { catalogFor, postKitSystemPrompt, postKitUserText, sceneSystemPrompt, sceneUserText } from '../_shared/prompts.ts';
+import { describeConfig, openAiCompatibleJson, ProviderError, readProviderConfig, type ProviderConfig } from '../_shared/llm.ts';
 import { parseCoachRequest } from '../_shared/validate.ts';
 
-const MODEL = Deno.env.get('COACH_MODEL') ?? 'claude-haiku-4-5';
 const DAILY_LIMIT: Record<CoachRequest['action'], number> = {
   scene: Number(Deno.env.get('DAILY_SCENE_LIMIT') ?? 40),
   postkit: Number(Deno.env.get('DAILY_POSTKIT_LIMIT') ?? 40),
 };
+
+const provider: ProviderConfig = readProviderConfig((name) => Deno.env.get(name));
+console.log(`coach ready: ${describeConfig(provider)}`);
 
 let anthropic: Anthropic | null = null;
 
 /** Created lazily so a missing key returns a clear error instead of crashing the function on boot. */
 function getAnthropic(): Anthropic {
   if (anthropic) return anthropic;
-  // Pasted secrets often carry stray whitespace or quotes; strip them.
-  const apiKey = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim().replace(/^["']|["']$/g, '').trim();
-  if (!apiKey) throw new CoachError(503, 'not_configured', 'The AI coach is not configured yet.');
-  if (!apiKey.startsWith('sk-ant-')) console.error(`ANTHROPIC_API_KEY looks wrong: length ${apiKey.length}, does not start with sk-ant-`);
-  anthropic = new Anthropic({ apiKey });
+  if (!provider.apiKey) throw new CoachError(503, 'not_configured', 'The AI coach is not configured yet.');
+  anthropic = new Anthropic({ apiKey: provider.apiKey, ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}) });
   return anthropic;
 }
 
@@ -91,15 +92,19 @@ Deno.serve(async (req) => {
   }
 });
 
-async function callClaude(
+async function callModel(
   system: string,
   image: string,
   text: string,
+  schemaName: string,
   schema: { [key: string]: unknown },
   maxTokens: number,
-) {
+): Promise<unknown> {
+  if (provider.kind === 'openai') {
+    return openAiCompatibleJson(provider, { system, text, image, schemaName, schema, maxTokens }, fetch, (m) => console.error(m));
+  }
   const response = await getAnthropic().messages.create({
-    model: MODEL,
+    model: provider.model,
     max_tokens: maxTokens,
     system,
     messages: [
@@ -117,15 +122,16 @@ async function callClaude(
   if (response.stop_reason === 'max_tokens') throw new CoachError(502, 'truncated', 'The AI response was cut off. Please try again.');
   const block = response.content.find((b) => b.type === 'text');
   if (!block || block.type !== 'text') throw new CoachError(502, 'empty', 'Empty AI response');
-  console.log(JSON.stringify({ model: MODEL, usage: response.usage }));
+  console.log(JSON.stringify({ model: provider.model, usage: response.usage }));
   return JSON.parse(block.text);
 }
 
 async function analyzeScene(request: Extract<CoachRequest, { action: 'scene' }>): Promise<SceneAnalysis> {
-  const raw = (await callClaude(
+  const raw = (await callModel(
     sceneSystemPrompt(request.people),
     request.image,
     sceneUserText(request.vibe),
+    'scene_analysis',
     SCENE_SCHEMA,
     1200,
   )) as SceneAnalysis;
@@ -134,10 +140,11 @@ async function analyzeScene(request: Extract<CoachRequest, { action: 'scene' }>)
 }
 
 async function writePostKit(request: Extract<CoachRequest, { action: 'postkit' }>): Promise<PostKit> {
-  const raw = (await callClaude(
+  const raw = (await callModel(
     postKitSystemPrompt(),
     request.image,
     postKitUserText(request),
+    'post_kit',
     POSTKIT_SCHEMA,
     900,
   )) as PostKit;
@@ -156,11 +163,19 @@ class CoachError extends Error {
 
 function handleError(err: unknown): Response {
   if (err instanceof CoachError) return json(err.status, { ok: false, code: err.code, error: err.message });
+  if (err instanceof ProviderError) {
+    if (err.code === 'auth') console.error(`AI provider auth failed: ${describeConfig(provider)}`);
+    return json(err.status, { ok: false, code: err.code, error: err.message });
+  }
   if (err instanceof Anthropic.RateLimitError) {
     return json(503, { ok: false, code: 'busy', error: 'The AI is busy. Please try again in a moment.' });
   }
   if (err instanceof Anthropic.APIConnectionError) {
     return json(503, { ok: false, code: 'unreachable', error: 'Could not reach the AI service.' });
+  }
+  if (err instanceof Anthropic.AuthenticationError) {
+    // Logs only the key type and length, never the key itself.
+    console.error(`AI provider auth failed: ${describeConfig(provider)}`);
   }
   if (err instanceof Anthropic.APIError) {
     console.error('anthropic', err.status, err.message);

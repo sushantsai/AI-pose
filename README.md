@@ -87,7 +87,25 @@ The function authenticates the caller from their (anonymous) session, then spend
    ```
 3. Put the project URL and publishable/anon key in `.env.local`.
 
-Optional function secrets: `COACH_MODEL` (default `claude-haiku-4-5`), `DAILY_SCENE_LIMIT`, `DAILY_POSTKIT_LIMIT`.
+Optional function secrets: `DAILY_SCENE_LIMIT`, `DAILY_POSTKIT_LIMIT` (default 40 each per user per day).
+
+### Bring your own model (OpenRouter or any OpenAI-compatible API)
+
+The model provider is chosen entirely by Supabase secrets — no app rebuild needed. Set them in
+Dashboard → Edge Functions → Secrets (or `npx supabase secrets set NAME=value`):
+
+| Secret | Value | Notes |
+|---|---|---|
+| `AI_PROVIDER` | `anthropic` (default), `openrouter`, or `openai` | `openai` = any OpenAI-compatible `/chat/completions` API |
+| `AI_BASE_URL` | e.g. `https://openrouter.ai/api/v1` | Set automatically for `openrouter`; optional for `anthropic` (proxies) |
+| `AI_API_KEY` | the provider's key | For `anthropic`, `ANTHROPIC_API_KEY` also works |
+| `AI_MODEL` | e.g. `google/gemini-2.5-flash`, `anthropic/claude-haiku-4.5`, `openai/gpt-4o-mini` | Must be a **vision** model. Default for anthropic: `claude-haiku-4-5` |
+
+Example (OpenRouter): `AI_PROVIDER=openrouter`, `AI_API_KEY=sk-or-v1-…`, `AI_MODEL=google/gemini-2.5-flash`.
+
+The function asks for strict JSON-schema output and automatically retries with prompt-only JSON if a
+model doesn't support it; every answer is validated before it reaches the app. Its log line
+`coach ready: provider=… model=… key=…` shows the active config (key type and length only, never the key).
 
 ## Development
 
