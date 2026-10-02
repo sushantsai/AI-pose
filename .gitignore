@@ -41,3 +41,4 @@ yarn-error.*
 /android
 poses.svg
 outlines.svg
+supabase/.temp/
