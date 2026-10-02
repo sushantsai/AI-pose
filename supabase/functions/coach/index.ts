@@ -14,7 +14,7 @@ import {
   type SceneAnalysis,
 } from '../_shared/contract.ts';
 import { catalogFor, postKitSystemPrompt, postKitUserText, sceneSystemPrompt, sceneUserText } from '../_shared/prompts.ts';
-import { describeConfig, openAiCompatibleJson, ProviderError, readProviderConfig, type ProviderConfig } from '../_shared/llm.ts';
+import { describeConfig, extractJson, openAiCompatibleJson, ProviderError, readProviderConfig, type ProviderConfig } from '../_shared/llm.ts';
 import { parseCoachRequest } from '../_shared/validate.ts';
 
 const DAILY_LIMIT: Record<CoachRequest['action'], number> = {
@@ -103,27 +103,39 @@ async function callModel(
   if (provider.kind === 'openai') {
     return openAiCompatibleJson(provider, { system, text, image, schemaName, schema, maxTokens }, fetch, (m) => console.error(m));
   }
-  const response = await getAnthropic().messages.create({
-    model: provider.model,
-    max_tokens: maxTokens,
-    system,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
-          { type: 'text', text },
-        ],
-      },
-    ],
-    output_config: { format: { type: 'json_schema', schema } },
-  });
+  const content = [
+    { type: 'image' as const, source: { type: 'base64' as const, media_type: 'image/jpeg' as const, data: image } },
+    { type: 'text' as const, text },
+  ];
+  let response: Anthropic.Message;
+  let strict = true;
+  try {
+    response = await getAnthropic().messages.create({
+      model: provider.model,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: 'user', content }],
+      output_config: { format: { type: 'json_schema', schema } },
+    });
+  } catch (err) {
+    // Some Anthropic-compatible gateways do not support structured outputs:
+    // retry once with the schema in the prompt instead.
+    if (!(err instanceof Anthropic.BadRequestError)) throw err;
+    console.error(`structured output rejected: ${err.message}; retrying with prompt-only JSON`);
+    strict = false;
+    response = await getAnthropic().messages.create({
+      model: provider.model,
+      max_tokens: maxTokens,
+      system: `${system}\n\nRespond with only a JSON object (no prose, no code fences) that matches this JSON Schema:\n${JSON.stringify(schema)}`,
+      messages: [{ role: 'user', content }],
+    });
+  }
   if (response.stop_reason === 'refusal') throw new CoachError(422, 'refused', 'The AI could not help with this image.');
   if (response.stop_reason === 'max_tokens') throw new CoachError(502, 'truncated', 'The AI response was cut off. Please try again.');
   const block = response.content.find((b) => b.type === 'text');
   if (!block || block.type !== 'text') throw new CoachError(502, 'empty', 'Empty AI response');
-  console.log(JSON.stringify({ model: provider.model, usage: response.usage }));
-  return JSON.parse(block.text);
+  console.log(JSON.stringify({ model: provider.model, strict, usage: response.usage }));
+  return strict ? JSON.parse(block.text) : extractJson(block.text);
 }
 
 async function analyzeScene(request: Extract<CoachRequest, { action: 'scene' }>): Promise<SceneAnalysis> {

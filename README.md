@@ -103,6 +103,11 @@ Dashboard → Edge Functions → Secrets (or `npx supabase secrets set NAME=valu
 
 Example (OpenRouter): `AI_PROVIDER=openrouter`, `AI_API_KEY=sk-or-v1-…`, `AI_MODEL=google/gemini-2.5-flash`.
 
+Example (Anthropic-compatible gateway, same as `anthropic.Anthropic(base_url=…, api_key=…)`): leave
+`AI_PROVIDER` unset and set `AI_BASE_URL=https://aiapi.sajeelo.com`, `AI_API_KEY=<gateway key>`,
+`AI_MODEL=claude-sonnet-4-6` (or `claude-haiku-4-5` for lower cost). If the gateway rejects structured
+outputs, the function retries with prompt-only JSON.
+
 The function asks for strict JSON-schema output and automatically retries with prompt-only JSON if a
 model doesn't support it; every answer is validated before it reaches the app. Its log line
 `coach ready: provider=… model=… key=…` shows the active config (key type and length only, never the key).
